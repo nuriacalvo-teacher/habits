@@ -25,23 +25,32 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen gradient-bg flex flex-col selection:bg-indigo-500 selection:text-white">
-<!-- BOTÓN ACCESO PROFESORA -->
-<button onclick="accederProfesor()" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 8px 12px; background-color: #2b6cb0; color: white; border: none; border-radius: 6px; cursor: pointer;">
-  ⚙️ Soy Profe
+<!-- BOTÓN Y FUNCIÓN DE ACCESO CORREGIDOS -->
+<button onclick="accederProfesor()" style="position: fixed; top: 15px; right: 15px; z-index: 99999; padding: 10px 16px; background-color: #4f46e5; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5);" class="no-print">
+  ⚙️ Profe
 </button>
 
 <script>
 function accederProfesor() {
   const clave = prompt("Introduce tu clave de profesora:");
   if (clave === "nuria123" || clave === "ana123") {
-    // Si la función de tu panel se llama diferente, ajusta este nombre:
-    if (typeof mostrarResultados === "function") {
-      mostrarResultados();
-    } else if (typeof verNotas === "function") {
-      verNotas();
-    } else {
-      alert("Clave correcta. Abriendo panel...");
-      document.getElementById("panel-profesor")?.style.setProperty("display", "block");
+    // Busca todas las secciones y hace visible la que contiene la tabla de notas
+    const elementos = document.querySelectorAll('div, section');
+    let encontrado = false;
+    
+    elementos.forEach(el => {
+      if (el.id.includes('teacher') || el.id.includes('admin') || el.id.includes('profesor') || el.id.includes('dashboard') || el.id.includes('results')) {
+        el.style.display = 'block';
+        el.classList.remove('hidden');
+        el.scrollIntoView({ behavior: 'smooth' });
+        encontrado = true;
+      }
+    });
+
+    if (!encontrado) {
+      // Si no encuentra el ID, busca la vista principal y la fuerza
+      document.body.querySelectorAll('.hidden').forEach(e => e.classList.remove('hidden'));
+      alert("¡Clave aceptada! Desplázate hacia abajo para ver las notas.");
     }
   } else if (clave !== null) {
     alert("Clave incorrecta");
