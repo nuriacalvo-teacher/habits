@@ -25,7 +25,31 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen gradient-bg flex flex-col selection:bg-indigo-500 selection:text-white">
+<!-- BOTÓN ACCESO PROFESORA -->
+<button onclick="accederProfesor()" style="position: fixed; top: 10px; right: 10px; z-index: 9999; padding: 8px 12px; background-color: #2b6cb0; color: white; border: none; border-radius: 6px; cursor: pointer;">
+  ⚙️ Soy Profe
+</button>
 
+<script>
+function accederProfesor() {
+  const clave = prompt("Introduce tu clave de profesora:");
+  if (clave === "nuria123" || clave === "ana123") {
+    // Si la función de tu panel se llama diferente, ajusta este nombre:
+    if (typeof mostrarResultados === "function") {
+      mostrarResultados();
+    } else if (typeof verNotas === "function") {
+      verNotas();
+    } else {
+      alert("Clave correcta. Abriendo panel...");
+      document.getElementById("panel-profesor")?.style.setProperty("display", "block");
+    }
+  } else if (clave !== null) {
+    alert("Clave incorrecta");
+  }
+}
+</script>
+
+  
   <!-- NAVBAR -->
   <header class="border-b border-slate-800 bg-slate-900/90 backdrop-filter blur-md sticky top-0 z-50 py-4 no-print">
     <div class="max-w-7xl mx-auto px-4 md:px-8 flex justify-between items-center">
