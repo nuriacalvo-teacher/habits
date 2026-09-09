@@ -51,67 +51,10 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen gradient-bg flex flex-col selection:bg-indigo-500 selection:text-white">
 
-<!-- BOTÓN FLOTANTE PROFE (Corregido con onclick) -->
-<button onclick="accederProfesor()" style="position: fixed; top: 15px; right: 15px; z-index: 99999; padding: 10px 16px; background-color: #4f46e5; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5);" class="no-print">
+<!-- BOTÓN FLOTANTE PROFE (ahora abre el panel real de resultados) -->
+<button onclick="showTeacherLogin()" style="position: fixed; top: 15px; right: 15px; z-index: 99999; padding: 10px 16px; background-color: #4f46e5; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5);" class="no-print">
   ⚙️ Profe
 </button>
-
-<script>
-// 1. FUNCIÓN DE ACCESO AL PANEL DE PROFESORA
-function accederProfesor() {
-  const clave = prompt("Introduce tu clave de profesora:");
-  if (clave === "nuria123" || clave === "ana123") {
-    alert("¡Acceso concedido! Cargando panel de notas...");
-
-    // Ejecuta la función de abajo para cargar los datos de Firebase
-    if (typeof checkTeacherAuth === "function") {
-      checkTeacherAuth(clave);
-    }
-
-    // Busca todas las secciones ocultas y las hace visibles en tu página
-    const elementos = document.querySelectorAll('div, section');
-    let encontrado = false;
-    
-    elementos.forEach(el => {
-      if (el.id && (el.id.includes('teacher') || el.id.includes('admin') || el.id.includes('profesor') || el.id.includes('dashboard') || el.id.includes('results'))) {
-        el.style.display = 'block';
-        el.classList.remove('hidden');
-        el.scrollIntoView({ behavior: 'smooth' });
-        encontrado = true;
-      }
-    });
-
-    if (!encontrado) {
-      document.body.querySelectorAll('.hidden').forEach(e => e.classList.remove('hidden'));
-      alert("Desplázate hacia abajo para ver las notas.");
-    }
-  } else if (clave !== null) {
-    alert("Clave incorrecta ❌");
-  }
-}
-
-// 2. FUNCIÓN PARA TRAER LAS NOTAS (Independiente, fuera de accederProfesor)
-function checkTeacherAuth(clave) {
-  console.log("Conectando con Firebase...");
-
-  // Leemos una vez el nodo 'results' de tu base de datos
-  firebase.database().ref('results').once('value')
-    .then((snapshot) => {
-      const datosAlumnos = snapshot.val();
-      console.log("¡Datos de alumnos recuperados de Firebase!", datosAlumnos);
-
-      if (datosAlumnos) {
-        alert("¡Notas cargadas con éxito! Abre la consola del navegador (F12) para ver los resultados de tus alumnos.");
-      } else {
-        alert("No se encontraron registros de alumnos en la base de datos.");
-      }
-    })
-    .catch((error) => {
-      console.error("Error al obtener los resultados desde Firebase:", error);
-      alert("Error al cargar los datos. Revisa las Reglas de Seguridad en tu consola de Firebase.");
-    });
-}
-</script>
 
 
 
