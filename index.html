@@ -94,46 +94,24 @@ function accederProfesor() {
 function checkTeacherAuth(clave) {
   console.log("Conectando con Firebase...");
 
+  // Leemos una vez el nodo 'results' de tu base de datos
   firebase.database().ref('results').once('value')
     .then((snapshot) => {
       const datosAlumnos = snapshot.val();
+      console.log("¡Datos de alumnos recuperados de Firebase!", datosAlumnos);
 
       if (datosAlumnos) {
-        // Buscamos un contenedor visual en tu HTML para inyectar la tabla
-        const contenedor = document.getElementById("admin-section") || 
-                           document.getElementById("teacher-panel") || 
-                           document.getElementById("results");
-
-        if (contenedor) {
-          // Creamos una tabla dinámica con Tailwind CSS
-          let html = '<h2 class="text-2xl font-bold mb-4 text-indigo-400">Resultados de Alumnos</h2>';
-          html += '<table class="w-full border-collapse border border-slate-800 text-left bg-slate-900 rounded-lg overflow-hidden">';
-          html += '<tr class="bg-slate-800 text-slate-200"><th class="p-3 border border-slate-800">Alumno</th><th class="p-3 border border-slate-800">Módulo</th><th class="p-3 border border-slate-800">Nota / Puntos</th></tr>';
-
-          // Recorremos cada registro de alumno devuelto por Firebase
-          Object.keys(datosAlumnos).forEach(key => {
-            const registro = datosAlumnos[key];
-            html += `<tr class="border-b border-slate-800 hover:bg-slate-800/50">
-              <td class="p-3 border border-slate-800">${registro.email || key}</td>
-              <td class="p-3 border border-slate-800">${registro.moduleId || registro.modulo || 'N/A'}</td>
-              <td class="p-3 border border-slate-800 text-emerald-400 font-bold">${registro.score ?? registro.puntuacion ?? '0'}</td>
-            </tr>`;
-          });
-          html += '</table>';
-
-          contenedor.innerHTML = html; // Inyecta la tabla en la página
-        } else {
-          alert("¡Notas cargadas! No se encontró un contenedor con id 'admin-section' o 'teacher-panel' para pintarlas.");
-        }
+        alert("¡Notas cargadas con éxito! Abre la consola del navegador (F12) para ver los resultados de tus alumnos.");
       } else {
         alert("No se encontraron registros de alumnos en la base de datos.");
       }
     })
     .catch((error) => {
       console.error("Error al obtener los resultados desde Firebase:", error);
+      alert("Error al cargar los datos. Revisa las Reglas de Seguridad en tu consola de Firebase.");
     });
 }
-
+</script>
 
 
 
