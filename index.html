@@ -46,41 +46,35 @@
   const db = firebase.database();
 
   // 4. Función de acceso al panel de profe
-  function accederProfesor() {
-    const pass = prompt("Introduce la clave de acceso de profesor:");
-    if (pass === "nuria123" || pass === "ana123") {
-      alert("¡Acceso concedido! Cargando panel de notas...");
-      // Si tienes una función para mostrar el panel, se ejecuta aquí:
-      if (typeof checkTeacherAuth === "function") {
-        checkTeacherAuth(pass);
-      } else {
-        // Muestra el panel si usas un contenedor visual
-        const adminSection = document.getElementById("admin-section") || document.getElementById("teacher-panel");
-        if (adminSection) adminSection.classList.remove("hidden");
-      }
-    } else if (pass !== null) {
-      alert("Clave incorrecta ❌");
-    }
-  }
+
 </script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen gradient-bg flex flex-col selection:bg-indigo-500 selection:text-white">
 
-<!-- BOTÓN FLOTANTE PROFE -->
+<!-- BOTÓN FLOTANTE PROFE (Corregido con onclick) -->
 <button onclick="accederProfesor()" style="position: fixed; top: 15px; right: 15px; z-index: 99999; padding: 10px 16px; background-color: #4f46e5; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 12px rgba(0,0,0,0.5);" class="no-print">
   ⚙️ Profe
 </button>
 
 <script>
+// ÚNICA VERSIÓN UNIFICADA DE LA FUNCIÓN DE PROFESOR
 function accederProfesor() {
   const clave = prompt("Introduce tu clave de profesora:");
   if (clave === "nuria123" || clave === "ana123") {
-    // Busca todas las secciones y hace visible la que contiene la tabla de notas
+    alert("¡Acceso concedido! Cargando panel de notas...");
+
+    // 1. Si tienes una función para cargar las notas desde Firebase, la ejecutamos aquí
+    if (typeof checkTeacherAuth === "function") {
+      checkTeacherAuth(clave);
+    }
+
+    // 2. Busca todas las secciones ocultas y las hace visibles en tu página
     const elementos = document.querySelectorAll('div, section');
     let encontrado = false;
     
     elementos.forEach(el => {
-      if (el.id.includes('teacher') || el.id.includes('admin') || el.id.includes('profesor') || el.id.includes('dashboard') || el.id.includes('results')) {
+      // Comprobamos de manera segura que el elemento tenga un id asignado
+      if (el.id && (el.id.includes('teacher') || el.id.includes('admin') || el.id.includes('profesor') || el.id.includes('dashboard') || el.id.includes('results'))) {
         el.style.display = 'block';
         el.classList.remove('hidden');
         el.scrollIntoView({ behavior: 'smooth' });
@@ -89,15 +83,16 @@ function accederProfesor() {
     });
 
     if (!encontrado) {
-      // Si no encuentra el ID, busca la vista principal y la fuerza
+      // Si no encuentra un id con esos nombres, muestra todo lo oculto de la página
       document.body.querySelectorAll('.hidden').forEach(e => e.classList.remove('hidden'));
-      alert("¡Clave aceptada! Desplázate hacia abajo para ver las notas.");
+      alert("Desplázate hacia abajo para ver las notas.");
     }
   } else if (clave !== null) {
-    alert("Clave incorrecta");
+    alert("Clave incorrecta ❌");
   }
 }
 </script>
+
 
   
   <!-- NAVBAR -->
