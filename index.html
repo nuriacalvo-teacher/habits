@@ -90,6 +90,31 @@ function accederProfesor() {
   } else if (clave !== null) {
     alert("Clave incorrecta ❌");
   }
+  // FUNCIÓN PARA TRAER LAS NOTAS DESDE FIREBASE REALTIME DATABASE
+function checkTeacherAuth(clave) {
+  console.log("Conectando con Firebase...");
+
+  // Leemos una vez el nodo 'results' de tu base de datos
+  firebase.database().ref('results').once('value')
+    .then((snapshot) => {
+      const datosAlumnos = snapshot.val();
+      console.log("¡Datos de alumnos recuperados de Firebase!", datosAlumnos);
+
+      if (datosAlumnos) {
+        // En tu consola verás la lista completa de alumnos y sus notas
+        alert("¡Notas cargadas con éxito! Abre la consola del navegador (F12) para ver los resultados de tus alumnos.");
+        
+        // Aquí puedes añadir tu propia lógica para pintar los datosAlumnos en tu tabla HTML
+      } else {
+        alert("No se encontraron registros de alumnos en la base de datos.");
+      }
+    })
+    .catch((error) => {
+      console.error("Error al obtener los resultados desde Firebase:", error);
+      alert("Error al cargar los datos. Revisa las Reglas de Seguridad en tu consola de Firebase.");
+    });
+}
+
 }
 </script>
 
