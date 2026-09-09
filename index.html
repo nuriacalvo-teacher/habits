@@ -57,23 +57,22 @@
 </button>
 
 <script>
-// ÚNICA VERSIÓN UNIFICADA DE LA FUNCIÓN DE PROFESOR
+// 1. FUNCIÓN DE ACCESO AL PANEL DE PROFESORA
 function accederProfesor() {
   const clave = prompt("Introduce tu clave de profesora:");
   if (clave === "nuria123" || clave === "ana123") {
     alert("¡Acceso concedido! Cargando panel de notas...");
 
-    // 1. Si tienes una función para cargar las notas desde Firebase, la ejecutamos aquí
+    // Ejecuta la función de abajo para cargar los datos de Firebase
     if (typeof checkTeacherAuth === "function") {
       checkTeacherAuth(clave);
     }
 
-    // 2. Busca todas las secciones ocultas y las hace visibles en tu página
+    // Busca todas las secciones ocultas y las hace visibles en tu página
     const elementos = document.querySelectorAll('div, section');
     let encontrado = false;
     
     elementos.forEach(el => {
-      // Comprobamos de manera segura que el elemento tenga un id asignado
       if (el.id && (el.id.includes('teacher') || el.id.includes('admin') || el.id.includes('profesor') || el.id.includes('dashboard') || el.id.includes('results'))) {
         el.style.display = 'block';
         el.classList.remove('hidden');
@@ -83,14 +82,15 @@ function accederProfesor() {
     });
 
     if (!encontrado) {
-      // Si no encuentra un id con esos nombres, muestra todo lo oculto de la página
       document.body.querySelectorAll('.hidden').forEach(e => e.classList.remove('hidden'));
       alert("Desplázate hacia abajo para ver las notas.");
     }
   } else if (clave !== null) {
     alert("Clave incorrecta ❌");
   }
-  // FUNCIÓN PARA TRAER LAS NOTAS DESDE FIREBASE REALTIME DATABASE
+}
+
+// 2. FUNCIÓN PARA TRAER LAS NOTAS (Independiente, fuera de accederProfesor)
 function checkTeacherAuth(clave) {
   console.log("Conectando con Firebase...");
 
@@ -101,10 +101,7 @@ function checkTeacherAuth(clave) {
       console.log("¡Datos de alumnos recuperados de Firebase!", datosAlumnos);
 
       if (datosAlumnos) {
-        // En tu consola verás la lista completa de alumnos y sus notas
         alert("¡Notas cargadas con éxito! Abre la consola del navegador (F12) para ver los resultados de tus alumnos.");
-        
-        // Aquí puedes añadir tu propia lógica para pintar los datosAlumnos en tu tabla HTML
       } else {
         alert("No se encontraron registros de alumnos en la base de datos.");
       }
@@ -114,9 +111,8 @@ function checkTeacherAuth(clave) {
       alert("Error al cargar los datos. Revisa las Reglas de Seguridad en tu consola de Firebase.");
     });
 }
-
-}
 </script>
+
 
 
   
