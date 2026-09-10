@@ -958,33 +958,48 @@
     let teacherResultsRef = null; // so we can detach the previous live listener before attaching a new one
     const TEACHER_COLSPAN = 5 + MODULES.length; // Alumno, Curso, [módulos], Progreso, Nivel, Última actividad
 
+// Normalizador que elimina tildes, diacríticos, mayúsculas y espacios sobrantes
     function normalizeTeacherName(s) {
-      return (s || "").toString().trim().toLowerCase();
+      return (s || "")
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
     }
 
     function renderTeacherDashboard() {
       document.getElementById("teacherTitle").innerText = `Panel de ${currentTeacherLoggedIn}`;
       renderTeacherTableHead();
+
+      // Limpia la búsqueda activa al abrir el panel
+      teacherSearchTerm = "";
+      const searchInput = document.getElementById("teacherSearchInput");
+      if (searchInput) searchInput.value = "";
+
       const tbody = document.getElementById("teacherTableBody");
       tbody.innerHTML = `<tr><td colspan="${TEACHER_COLSPAN}" class="p-6 text-center text-slate-400 font-bold">Cargando datos desde la nube...</td></tr>`;
 
-      // Detach any previous live listener first, so re-opening the panel never
-      // stacks up duplicate listeners or keeps watching with a stale filter.
       if (teacherResultsRef) {
         teacherResultsRef.off("value");
       }
 
-      // NOTE: we deliberately do NOT filter with .orderByChild("teacher").equalTo(...)
-      // on the server. That requires an exact string match (and a defined index) and
-      // silently drops any record whose "teacher" field has different spacing/casing,
-      // which is why some students were going missing. Instead we pull the whole
-      // "results" node and match teachers ourselves, trimmed + case-insensitive.
       teacherResultsRef = db.ref("results");
       teacherResultsRef.on("value", (snapshot) => {
         const all = [];
-        snapshot.forEach(childSnap => all.push(childSnap.val()));
+        snapshot.forEach(childSnap => {
+          if (childSnap.val()) all.push(childSnap.val());
+        });
+
         const wanted = normalizeTeacherName(currentTeacherLoggedIn);
-        teacherAllRecords = all.filter(r => normalizeTeacherName(r && r.teacher) === wanted);
+        
+        // Filtra aceptando tildes/sin tildes y coincidencias parciales de nombre
+        teacherAllRecords = all.filter(r => {
+          if (!r) return false;
+          const t = normalizeTeacherName(r.teacher);
+          return !t || t === wanted || t.includes(wanted) || wanted.includes(t);
+        });
+
         paintTeacherTable();
         updateTeacherLastRefreshed();
       }, (err) => {
@@ -1002,9 +1017,15 @@
 
       db.ref("results").once("value").then((snapshot) => {
         const all = [];
-        snapshot.forEach(childSnap => all.push(childSnap.val()));
+        snapshot.forEach(childSnap => {
+          if (childSnap.val()) all.push(childSnap.val());
+        });
         const wanted = normalizeTeacherName(currentTeacherLoggedIn);
-        teacherAllRecords = all.filter(r => normalizeTeacherName(r && r.teacher) === wanted);
+        teacherAllRecords = all.filter(r => {
+          if (!r) return false;
+          const t = normalizeTeacherName(r.teacher);
+          return !t || t === wanted || t.includes(wanted) || wanted.includes(t);
+        });
         paintTeacherTable();
         updateTeacherLastRefreshed();
       }).catch((err) => {
@@ -1039,36 +1060,58 @@
       `;
     }
 
-    // Groups every quiz attempt by student (email) so each student appears in exactly ONE row,
-    // no matter how many blocks (or retries) they have completed.
+    // Agrupa todos los intentos por alumno para mostrarlo en una sola fila sin duplicados
     function buildStudentSummaries(records) {
       const byStudent = {};
       records.forEach(r => {
-        const key = r.email || r.studentName;
+        if (!r) return;
+        
+        // Clave insensible a mayúsculas para unificar registros del mismo alumno
+        const rawKey = r.email || r.studentName || "sin_nombre";
+        const key = rawKey.toString().trim().toLowerCase();
+
         if (!byStudent[key]) {
-          byStudent[key] = { key, studentName: r.studentName, grade: r.grade, email: r.email, attempts: [], lastTimestamp: 0, lastDateTime: "" };
+          byStudent[key] = { 
+            key, 
+            studentName: r.studentName || "Alumno", 
+            grade: r.grade || "—", 
+            email: r.email || "", 
+            attempts: [], 
+            lastTimestamp: 0, 
+            lastDateTime: "" 
+          };
         }
         const s = byStudent[key];
         s.attempts.push(r);
-        if ((r.timestamp || 0) >= s.lastTimestamp) {
-          s.lastTimestamp = r.timestamp || 0;
+
+        const ts = Number(r.timestamp) || 0;
+        if (ts >= s.lastTimestamp || !s.lastDateTime) {
+          s.lastTimestamp = ts;
           s.lastDateTime = r.dateTime || "";
-          s.studentName = r.studentName || s.studentName;
-          s.grade = r.grade || s.grade;
+          if (r.studentName) s.studentName = r.studentName;
+          if (r.grade) s.grade = r.grade;
         }
       });
 
       return Object.values(byStudent).map(s => {
         const moduleScores = MODULES.map(mod => {
-          const attemptsForMod = s.attempts.filter(a => a.moduleId === mod.id);
+          // Búsqueda por ID de módulo o por coincidencia de texto en el nombre del tema
+          const attemptsForMod = s.attempts.filter(a => 
+            a.moduleId === mod.id || 
+            (a.topic && (a.topic.includes(mod.short) || a.topic.includes(mod.title)))
+          );
           if (attemptsForMod.length === 0) return null;
-          return Math.max(...attemptsForMod.map(a => a.score));
+          
+          const scores = attemptsForMod.map(a => Number(a.score) || 0);
+          return Math.max(...scores);
         });
+
         const completedCount = moduleScores.filter(sc => sc !== null).length;
         const sumScores = moduleScores.reduce((acc, sc) => acc + (sc || 0), 0);
         const allDone = completedCount === MODULES.length;
         const finalAverage = allDone ? Math.round(sumScores / MODULES.length) : null;
         const levelReached = allDone ? finalAverage >= PASS_THRESHOLD : null;
+
         return Object.assign({}, s, { moduleScores, completedCount, finalAverage, levelReached, allDone });
       });
     }
@@ -1084,6 +1127,7 @@
     function renderTeacherStats(students) {
       const stats = computeTeacherStats(students);
       const grid = document.getElementById("teacherStatsGrid");
+      if (!grid) return;
       grid.innerHTML = `
         <div class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-4 text-center">
           <div class="text-3xl font-black text-white">${stats.total}</div>
