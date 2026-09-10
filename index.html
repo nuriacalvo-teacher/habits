@@ -767,39 +767,67 @@
 
       const passed = percentage >= PASS_THRESHOLD;
 
-      // GUARDAR DIRECTAMENTE EN FIREBASE REALTIME DATABASE
+      // Show the score to the student RIGHT AWAY. We don't make them wait for
+      // the network round-trip to Firebase — with 30+ students online at once,
+      // that write can take a few seconds and used to leave the last question
+      // looking "frozen". The save now happens quietly in the background.
+      const resultsCard = document.getElementById("resultsCard");
+      resultsCard.innerHTML = `
+        <div class="w-24 h-24 mx-auto rounded-full flex items-center justify-center text-4xl font-black ${passed ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/50' : 'bg-rose-500/20 text-rose-400 border-2 border-rose-500/50'}">
+          ${percentage}%
+        </div>
+        <div>
+          <h2 class="text-3xl font-black text-white mb-2">${passed ? '¡Nivel alcanzado! 🎉' : 'Todavía no has alcanzado el nivel'}</h2>
+          <p class="text-slate-300 text-lg">${passed ? 'Gran trabajo, ¡sigue así!' : `Necesitas un ${PASS_THRESHOLD}% para superar este bloque. ¡Vuelve a intentarlo!`}</p>
+        </div>
+        <div class="bg-slate-950 p-6 rounded-2xl border-2 border-slate-800 text-left text-base md:text-xl text-slate-200 space-y-3 max-w-lg mx-auto">
+          <div class="flex justify-between"><span class="text-slate-400">Tema:</span> <span class="font-bold text-indigo-400">${record.topic}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Puntuación:</span> <span class="font-bold text-white">${record.rawScore} (${percentage}%)</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Resultado:</span> <span class="font-bold ${passed ? 'text-emerald-400' : 'text-rose-400'}">${passed ? '✅ Nivel alcanzado' : '⚠️ Nivel no alcanzado (mínimo ' + PASS_THRESHOLD + '%)'}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Tiempo:</span> <span class="font-bold text-emerald-400">${timeStr}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Profesor/a:</span> <span class="font-bold text-amber-400">${record.teacher}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Fecha:</span> <span class="font-bold text-white">${nowStr}</span></div>
+        </div>
+        <div id="saveStatusLine" class="text-xs font-bold text-slate-500 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Guardando en la nube...
+        </div>
+        <div class="pt-4 flex flex-col md:flex-row gap-3 justify-center">
+          ${!passed ? `<button onclick="startCurrentQuiz()" class="bg-rose-600 hover:bg-rose-500 text-white font-black text-lg px-8 py-4 rounded-2xl transition order-first">🔁 Repetir este bloque</button>` : ''}
+          <button onclick="goHome()" class="${passed ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-800 hover:bg-slate-700'} text-white font-black text-lg px-8 py-4 rounded-2xl transition">
+            Volver al Panel
+          </button>
+        </div>
+      `;
+      showView("viewResults");
+
+      saveResultToFirebase(record);
+    }
+
+    function saveResultToFirebase(record, isRetry) {
       db.ref("results").push(record).then(() => {
-        const resultsCard = document.getElementById("resultsCard");
-        resultsCard.innerHTML = `
-          <div class="w-24 h-24 mx-auto rounded-full flex items-center justify-center text-4xl font-black ${passed ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/50' : 'bg-rose-500/20 text-rose-400 border-2 border-rose-500/50'}">
-            ${percentage}%
-          </div>
-          <div>
-            <h2 class="text-3xl font-black text-white mb-2">${passed ? '¡Nivel alcanzado! 🎉' : 'Todavía no has alcanzado el nivel'}</h2>
-            <p class="text-slate-300 text-lg">${passed ? 'Gran trabajo, ¡sigue así!' : `Necesitas un ${PASS_THRESHOLD}% para superar este bloque. ¡Vuelve a intentarlo!`}</p>
-          </div>
-          <div class="bg-slate-950 p-6 rounded-2xl border-2 border-slate-800 text-left text-base md:text-xl text-slate-200 space-y-3 max-w-lg mx-auto">
-            <div class="flex justify-between"><span class="text-slate-400">Tema:</span> <span class="font-bold text-indigo-400">${record.topic}</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">Puntuación:</span> <span class="font-bold text-white">${record.rawScore} (${percentage}%)</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">Resultado:</span> <span class="font-bold ${passed ? 'text-emerald-400' : 'text-rose-400'}">${passed ? '✅ Nivel alcanzado' : '⚠️ Nivel no alcanzado (mínimo ' + PASS_THRESHOLD + '%)'}</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">Tiempo:</span> <span class="font-bold text-emerald-400">${timeStr}</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">Profesor/a:</span> <span class="font-bold text-amber-400">${record.teacher}</span></div>
-            <div class="flex justify-between"><span class="text-slate-400">Fecha:</span> <span class="font-bold text-white">${nowStr}</span></div>
-          </div>
-          <div class="pt-4 flex flex-col md:flex-row gap-3 justify-center">
-            ${!passed ? `<button onclick="startCurrentQuiz()" class="bg-rose-600 hover:bg-rose-500 text-white font-black text-lg px-8 py-4 rounded-2xl transition order-first">🔁 Repetir este bloque</button>` : ''}
-            <button onclick="goHome()" class="${passed ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-800 hover:bg-slate-700'} text-white font-black text-lg px-8 py-4 rounded-2xl transition">
-              Volver al Panel
-            </button>
-          </div>
-        `;
-        showView("viewResults");
+        const line = document.getElementById("saveStatusLine");
+        if (line) line.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i> <span class="text-emerald-400">Guardado en la nube</span>`;
       }).catch(err => {
-        alert("Error al guardar en Firebase: " + err.message);
+        console.error("Error al guardar en Firebase:", err);
+        if (!isRetry) {
+          // Try once more automatically after a couple of seconds (covers
+          // brief wifi hiccups) before bothering the student about it.
+          setTimeout(() => saveResultToFirebase(record, true), 2500);
+        } else {
+          const line = document.getElementById("saveStatusLine");
+          if (line) line.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> <span class="text-amber-400">No se pudo guardar. Avisa a tu profesor/a de este resultado.</span>`;
+        }
       });
     }
 
     function showGlobalReportModal() {
+      showView("viewGlobalReport");
+      document.getElementById("globalReportDetails").innerHTML = `
+        <div class="text-center py-10 text-slate-400 font-bold">
+          <i class="fa-solid fa-spinner fa-spin text-2xl mb-3"></i><br>Cargando tu informe...
+        </div>
+      `;
+
       db.ref("results").orderByChild("email").equalTo(currentUser.email).once("value", (snapshot) => {
         const records = [];
         snapshot.forEach(childSnap => {
