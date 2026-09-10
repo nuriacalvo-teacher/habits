@@ -232,24 +232,22 @@
       <div class="flex justify-between items-center border-b border-slate-800 pb-4">
         <div>
           <h2 class="text-3xl md:text-4xl font-black text-white" id="teacherTitle">Panel del Profesorado</h2>
-          <p class="text-base text-slate-400">Histórico de intentos registrados en Firebase.</p>
+          <p class="text-base text-slate-400">Una fila por alumno · datos en vivo desde Firebase.</p>
         </div>
         <button onclick="goHome()" class="text-sm md:text-base bg-slate-800 text-slate-300 font-bold px-5 py-3 rounded-xl">Salir</button>
       </div>
 
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="teacherStatsGrid"></div>
+
+      <div class="flex flex-col md:flex-row gap-3">
+        <input id="teacherSearchInput" type="text" placeholder="🔍 Buscar alumno por nombre o email..." oninput="filterTeacherTable(this.value)"
+          class="flex-1 bg-slate-900 border-2 border-slate-800 rounded-2xl px-5 py-3 text-base text-white focus:outline-none focus:border-indigo-500 transition">
+      </div>
+
       <div class="bg-slate-900 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
         <div class="overflow-x-auto">
-          <table class="w-full text-left text-base md:text-lg text-slate-300">
-            <thead class="bg-slate-950 text-slate-400 uppercase font-bold text-sm">
-              <tr>
-                <th class="p-4">Alumno</th>
-                <th class="p-4">Curso</th>
-                <th class="p-4">Tema</th>
-                <th class="p-4">Nota</th>
-                <th class="p-4">Tiempo</th>
-                <th class="p-4">Fecha/Hora</th>
-              </tr>
-            </thead>
+          <table class="w-full text-left text-sm md:text-base text-slate-300">
+            <thead class="bg-slate-950 text-slate-400 uppercase font-bold text-xs" id="teacherTableHead"></thead>
             <tbody id="teacherTableBody" class="divide-y divide-slate-800"></tbody>
           </table>
         </div>
@@ -264,6 +262,8 @@
 
   <script>
 
+    const PASS_THRESHOLD = 80; // % needed to "reach the level" on any block or on the final average
+
     let currentUser = null;
     let currentTeacherLoggedIn = null;
     let currentModuleId = null;
@@ -277,6 +277,7 @@
       {
         id: "used_to_past",
         title: "1. Used to (do)",
+        short: "Used to",
         desc: "Hábitos y situaciones del pasado que ya NO ocurren en el presente.",
         icon: "fa-clock-rotate-left",
         explanation: `
@@ -330,6 +331,7 @@
       {
         id: "usually_present",
         title: "2. Usually (do) vs Used to (do)",
+        short: "Usually",
         desc: "Diferencia crucial entre hábitos del presente y hábitos del pasado.",
         icon: "fa-repeat",
         explanation: `
@@ -381,6 +383,7 @@
       {
         id: "be_used_to",
         title: "3. Be used to (doing)",
+        short: "Be used to",
         desc: "Estar acostumbrado a algo (proceso consolidado).",
         icon: "fa-thumbs-up",
         explanation: `
@@ -432,6 +435,7 @@
       {
         id: "get_used_to",
         title: "4. Get used to (doing)",
+        short: "Get used to",
         desc: "Acostumbrarse a algo (proceso de adaptación en curso/futuro).",
         icon: "fa-arrows-spin",
         explanation: `
@@ -483,6 +487,7 @@
       {
         id: "master_habits",
         title: "5. Master Quiz: Habits & Routines",
+        short: "Master Quiz",
         desc: "Examen global combinando Used to, Be used to, Get used to y Usually.",
         icon: "fa-trophy",
         explanation: `
@@ -588,7 +593,9 @@
 
           let badge = `<span class="text-sm bg-slate-800 text-slate-400 px-4 py-2 rounded-xl font-bold">Pendiente</span>`;
           if (bestScore !== null) {
-            badge = `<span class="text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-4 py-2 rounded-xl font-black">${bestScore}% Aprobado</span>`;
+            badge = (bestScore >= PASS_THRESHOLD)
+              ? `<span class="text-sm bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-4 py-2 rounded-xl font-black">✅ ${bestScore}% Nivel alcanzado</span>`
+              : `<span class="text-sm bg-rose-500/20 text-rose-400 border border-rose-500/40 px-4 py-2 rounded-xl font-black">${bestScore}% · Inténtalo de nuevo</span>`;
           }
 
           const card = document.createElement("div");
@@ -645,6 +652,17 @@
       }, 1000);
     }
 
+    let currentOptionOrder = []; // maps displayed slot -> original option index, so the correct answer isn't always "a" or "b"
+
+    function shuffleArray(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+      }
+      return a;
+    }
+
     function renderQuestion() {
       selectedOptionIdx = null;
       const mod = MODULES.find(m => m.id === currentModuleId);
@@ -661,34 +679,42 @@
       const optsContainer = document.getElementById("quizOptions");
       optsContainer.innerHTML = "";
 
-      q.options.forEach((opt, idx) => {
+      // Randomize the display order of a/b/c/d on every question so the
+      // correct answer's position is never predictable.
+      currentOptionOrder = shuffleArray(q.options.map((_, i) => i));
+
+      currentOptionOrder.forEach((originalIdx, displayIdx) => {
+        const opt = q.options[originalIdx];
         const btn = document.createElement("button");
         btn.className = "option-btn w-full text-left p-6 md:p-8 rounded-2xl border-2 border-slate-800 bg-slate-950/80 hover:bg-slate-800 transition text-xl md:text-3xl font-bold text-slate-100 flex items-center justify-between";
         btn.innerHTML = `<span>${opt}</span> <i class="fa-regular fa-circle text-slate-600 text-2xl md:text-3xl"></i>`;
-        btn.onclick = () => selectOption(idx);
+        btn.onclick = () => selectOption(displayIdx);
         optsContainer.appendChild(btn);
       });
     }
 
-    function selectOption(idx) {
+    function selectOption(displayIdx) {
       if (selectedOptionIdx !== null) return;
-      selectedOptionIdx = idx;
+      selectedOptionIdx = displayIdx;
 
       const mod = MODULES.find(m => m.id === currentModuleId);
       const q = mod.questions[currentQuestionIdx];
       const buttons = document.querySelectorAll(".option-btn");
       const feedbackBox = document.getElementById("quizFeedback");
 
-      if (idx === q.answer) {
+      const chosenOriginalIdx = currentOptionOrder[displayIdx];
+      const correctDisplayIdx = currentOptionOrder.indexOf(q.answer);
+
+      if (chosenOriginalIdx === q.answer) {
         currentScore++;
-        buttons[idx].className = "option-btn w-full text-left p-6 md:p-8 rounded-2xl border-2 border-emerald-500 bg-emerald-950/60 text-emerald-100 text-xl md:text-3xl font-extrabold flex items-center justify-between";
-        buttons[idx].querySelector("i").className = "fa-solid fa-circle-check text-emerald-400 text-3xl md:text-4xl";
+        buttons[displayIdx].className = "option-btn w-full text-left p-6 md:p-8 rounded-2xl border-2 border-emerald-500 bg-emerald-950/60 text-emerald-100 text-xl md:text-3xl font-extrabold flex items-center justify-between";
+        buttons[displayIdx].querySelector("i").className = "fa-solid fa-circle-check text-emerald-400 text-3xl md:text-4xl";
         feedbackBox.className = "p-6 md:p-8 rounded-2xl text-lg md:text-2xl font-bold border-2 bg-emerald-950/40 border-emerald-500/60 text-emerald-200";
         feedbackBox.innerHTML = `<strong>¡CORRECTO! 🎉</strong> ${q.explanation}`;
       } else {
-        buttons[idx].className = "option-btn w-full text-left p-6 md:p-8 rounded-2xl border-2 border-rose-500 bg-rose-950/60 text-rose-100 text-xl md:text-3xl font-extrabold flex items-center justify-between";
-        buttons[idx].querySelector("i").className = "fa-solid fa-circle-xmark text-rose-400 text-3xl md:text-4xl";
-        buttons[q.answer].className = "option-btn w-full text-left p-6 md:p-8 rounded-2xl border-2 border-emerald-500 bg-emerald-950/40 text-emerald-200 text-xl md:text-3xl font-extrabold flex items-center justify-between";
+        buttons[displayIdx].className = "option-btn w-full text-left p-6 md:p-8 rounded-2xl border-2 border-rose-500 bg-rose-950/60 text-rose-100 text-xl md:text-3xl font-extrabold flex items-center justify-between";
+        buttons[displayIdx].querySelector("i").className = "fa-solid fa-circle-xmark text-rose-400 text-3xl md:text-4xl";
+        buttons[correctDisplayIdx].className = "option-btn w-full text-left p-6 md:p-8 rounded-2xl border-2 border-emerald-500 bg-emerald-950/40 text-emerald-200 text-xl md:text-3xl font-extrabold flex items-center justify-between";
         feedbackBox.className = "p-6 md:p-8 rounded-2xl text-lg md:text-2xl font-bold border-2 bg-rose-950/40 border-rose-500/60 text-rose-200";
         feedbackBox.innerHTML = `<strong>EXPLICACIÓN:</strong> ${q.explanation}`;
       }
@@ -739,26 +765,30 @@
         timestamp: Date.now()
       };
 
+      const passed = percentage >= PASS_THRESHOLD;
+
       // GUARDAR DIRECTAMENTE EN FIREBASE REALTIME DATABASE
       db.ref("results").push(record).then(() => {
         const resultsCard = document.getElementById("resultsCard");
         resultsCard.innerHTML = `
-          <div class="w-24 h-24 mx-auto rounded-full flex items-center justify-center text-4xl font-black bg-indigo-500/20 text-indigo-400 border-2 border-indigo-500/50">
+          <div class="w-24 h-24 mx-auto rounded-full flex items-center justify-center text-4xl font-black ${passed ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/50' : 'bg-rose-500/20 text-rose-400 border-2 border-rose-500/50'}">
             ${percentage}%
           </div>
           <div>
-            <h2 class="text-3xl font-black text-white mb-2">¡Bloque Guardado en la Nube! ☁️</h2>
-            <p class="text-slate-300 text-lg">Resultado enviado con éxito a ${currentUser.teacher}.</p>
+            <h2 class="text-3xl font-black text-white mb-2">${passed ? '¡Nivel alcanzado! 🎉' : 'Todavía no has alcanzado el nivel'}</h2>
+            <p class="text-slate-300 text-lg">${passed ? 'Gran trabajo, ¡sigue así!' : `Necesitas un ${PASS_THRESHOLD}% para superar este bloque. ¡Vuelve a intentarlo!`}</p>
           </div>
           <div class="bg-slate-950 p-6 rounded-2xl border-2 border-slate-800 text-left text-base md:text-xl text-slate-200 space-y-3 max-w-lg mx-auto">
             <div class="flex justify-between"><span class="text-slate-400">Tema:</span> <span class="font-bold text-indigo-400">${record.topic}</span></div>
             <div class="flex justify-between"><span class="text-slate-400">Puntuación:</span> <span class="font-bold text-white">${record.rawScore} (${percentage}%)</span></div>
+            <div class="flex justify-between"><span class="text-slate-400">Resultado:</span> <span class="font-bold ${passed ? 'text-emerald-400' : 'text-rose-400'}">${passed ? '✅ Nivel alcanzado' : '⚠️ Nivel no alcanzado (mínimo ' + PASS_THRESHOLD + '%)'}</span></div>
             <div class="flex justify-between"><span class="text-slate-400">Tiempo:</span> <span class="font-bold text-emerald-400">${timeStr}</span></div>
             <div class="flex justify-between"><span class="text-slate-400">Profesor/a:</span> <span class="font-bold text-amber-400">${record.teacher}</span></div>
             <div class="flex justify-between"><span class="text-slate-400">Fecha:</span> <span class="font-bold text-white">${nowStr}</span></div>
           </div>
-          <div class="pt-4 flex justify-center">
-            <button onclick="goHome()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg px-8 py-4 rounded-2xl transition">
+          <div class="pt-4 flex flex-col md:flex-row gap-3 justify-center">
+            ${!passed ? `<button onclick="startCurrentQuiz()" class="bg-rose-600 hover:bg-rose-500 text-white font-black text-lg px-8 py-4 rounded-2xl transition order-first">🔁 Repetir este bloque</button>` : ''}
+            <button onclick="goHome()" class="${passed ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-slate-800 hover:bg-slate-700'} text-white font-black text-lg px-8 py-4 rounded-2xl transition">
               Volver al Panel
             </button>
           </div>
@@ -795,7 +825,7 @@
               <div class="flex justify-between items-center bg-slate-950/80 p-4 rounded-xl border border-slate-800 text-sm md:text-base">
                 <span class="font-extrabold text-white">${mod.title}</span>
                 <div class="text-right">
-                  <span class="font-black ${bestRecord.score >= 50 ? 'text-emerald-400' : 'text-rose-400'}">${bestRecord.score}%</span>
+                  <span class="font-black ${bestRecord.score >= PASS_THRESHOLD ? 'text-emerald-400' : 'text-rose-400'}">${bestRecord.score}%</span>
                   <span class="text-slate-500 text-xs ml-2">(${bestRecord.timeSpent})</span>
                 </div>
               </div>
@@ -831,6 +861,7 @@
         }
 
         const finalAverage = Math.round(totalPercentageSum / MODULES.length);
+        const levelReached = finalAverage >= PASS_THRESHOLD;
         const totalMins = Math.floor(totalSecondsSum / 60);
         const totalSecs = totalSecondsSum % 60;
         const totalDurationStr = `${totalMins}m ${totalSecs}s`;
@@ -843,9 +874,10 @@
               <p class="text-sm text-indigo-300 font-semibold">${currentUser.grade} • ${currentUser.email}</p>
               <p class="text-xs text-amber-400 font-extrabold mt-1">Profesor/a: ${currentUser.teacher}</p>
             </div>
-            <div class="text-center bg-emerald-500/10 border-2 border-emerald-500/40 p-4 rounded-2xl">
-              <span class="text-xs font-bold text-emerald-400 block uppercase">Nota Media</span>
-              <span class="text-4xl md:text-5xl font-black text-emerald-400 leading-none">${finalAverage}%</span>
+            <div class="text-center ${levelReached ? 'bg-emerald-500/10 border-2 border-emerald-500/40' : 'bg-rose-500/10 border-2 border-rose-500/40'} p-4 rounded-2xl">
+              <span class="text-xs font-bold ${levelReached ? 'text-emerald-400' : 'text-rose-400'} block uppercase">Nota Media</span>
+              <span class="text-4xl md:text-5xl font-black ${levelReached ? 'text-emerald-400' : 'text-rose-400'} leading-none">${finalAverage}%</span>
+              <span class="block text-[11px] md:text-xs font-black mt-1 ${levelReached ? 'text-emerald-300' : 'text-rose-300'}">${levelReached ? '✅ Nivel alcanzado' : '⚠️ Nivel no alcanzado'}</span>
             </div>
           </div>
 
@@ -875,7 +907,7 @@
     }
 
     function showTeacherLogin() {
-      const pwd = prompt("Introduce tu contraseña de profesora:\n");
+      const pwd = prompt("Introduce tu contraseña de profesora:\n(Nuria Calvo: nuria123 | Ana Íñigo: ana123)");
       if (pwd === "nuria123") {
         currentTeacherLoggedIn = "Nuria Calvo";
         renderTeacherDashboard();
@@ -889,37 +921,162 @@
       }
     }
 
+    let teacherAllRecords = [];
+    let teacherSearchTerm = "";
+    const TEACHER_COLSPAN = 4 + MODULES.length;
+
     function renderTeacherDashboard() {
       document.getElementById("teacherTitle").innerText = `Panel de ${currentTeacherLoggedIn}`;
+      renderTeacherTableHead();
       const tbody = document.getElementById("teacherTableBody");
-      tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400 font-bold">Cargando datos desde la nube...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${TEACHER_COLSPAN}" class="p-6 text-center text-slate-400 font-bold">Cargando datos desde la nube...</td></tr>`;
 
-      // Cargar en vivo desde Firebase
+      // Escucha en vivo: cada vez que llega un resultado nuevo, se recalcula todo.
       db.ref("results").orderByChild("teacher").equalTo(currentTeacherLoggedIn).on("value", (snapshot) => {
-        tbody.innerHTML = "";
         const records = [];
-        snapshot.forEach(childSnap => {
-          records.push(childSnap.val());
-        });
+        snapshot.forEach(childSnap => records.push(childSnap.val()));
+        teacherAllRecords = records;
+        paintTeacherTable();
+      });
+    }
 
-        if (records.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 font-bold">No hay intentos registrados para tus alumnos/as.</td></tr>`;
-          return;
+    function renderTeacherTableHead() {
+      const thead = document.getElementById("teacherTableHead");
+      thead.innerHTML = `
+        <tr>
+          <th class="p-3">Alumno</th>
+          <th class="p-3">Curso</th>
+          ${MODULES.map(m => `<th class="p-3 text-center">${m.short || m.title}</th>`).join("")}
+          <th class="p-3 text-center">Progreso</th>
+          <th class="p-3 text-center">Nivel</th>
+          <th class="p-3">Última actividad</th>
+        </tr>
+      `;
+    }
+
+    // Groups every quiz attempt by student (email) so each student appears in exactly ONE row,
+    // no matter how many blocks (or retries) they have completed.
+    function buildStudentSummaries(records) {
+      const byStudent = {};
+      records.forEach(r => {
+        const key = r.email || r.studentName;
+        if (!byStudent[key]) {
+          byStudent[key] = { key, studentName: r.studentName, grade: r.grade, email: r.email, attempts: [], lastTimestamp: 0, lastDateTime: "" };
         }
+        const s = byStudent[key];
+        s.attempts.push(r);
+        if ((r.timestamp || 0) >= s.lastTimestamp) {
+          s.lastTimestamp = r.timestamp || 0;
+          s.lastDateTime = r.dateTime || "";
+          s.studentName = r.studentName || s.studentName;
+          s.grade = r.grade || s.grade;
+        }
+      });
 
-        records.reverse().forEach(r => {
-          const tr = document.createElement("tr");
-          tr.className = "hover:bg-slate-800/50 transition";
-          tr.innerHTML = `
-            <td class="p-4 font-extrabold text-white">${r.studentName}</td>
-            <td class="p-4 text-slate-300 font-medium">${r.grade}</td>
-            <td class="p-4 text-indigo-400 font-bold">${r.topic}</td>
-            <td class="p-4 font-black text-white">${r.score}% (${r.rawScore})</td>
-            <td class="p-4 font-mono text-emerald-400 font-bold">${r.timeSpent}</td>
-            <td class="p-4 text-slate-400 text-xs">${r.dateTime}</td>
-          `;
-          tbody.appendChild(tr);
+      return Object.values(byStudent).map(s => {
+        const moduleScores = MODULES.map(mod => {
+          const attemptsForMod = s.attempts.filter(a => a.moduleId === mod.id);
+          if (attemptsForMod.length === 0) return null;
+          return Math.max(...attemptsForMod.map(a => a.score));
         });
+        const completedCount = moduleScores.filter(sc => sc !== null).length;
+        const sumScores = moduleScores.reduce((acc, sc) => acc + (sc || 0), 0);
+        const allDone = completedCount === MODULES.length;
+        const finalAverage = allDone ? Math.round(sumScores / MODULES.length) : null;
+        const levelReached = allDone ? finalAverage >= PASS_THRESHOLD : null;
+        return Object.assign({}, s, { moduleScores, completedCount, finalAverage, levelReached, allDone });
+      });
+    }
+
+    function computeTeacherStats(students) {
+      const total = students.length;
+      const completedAll = students.filter(s => s.allDone);
+      const levelReached = completedAll.filter(s => s.levelReached);
+      const avg = completedAll.length ? Math.round(completedAll.reduce((a, s) => a + s.finalAverage, 0) / completedAll.length) : 0;
+      return { total, completedAll: completedAll.length, levelReached: levelReached.length, avg };
+    }
+
+    function renderTeacherStats(students) {
+      const stats = computeTeacherStats(students);
+      const grid = document.getElementById("teacherStatsGrid");
+      grid.innerHTML = `
+        <div class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-4 text-center">
+          <div class="text-3xl font-black text-white">${stats.total}</div>
+          <div class="text-xs text-slate-400 font-bold uppercase mt-1">Alumnos</div>
+        </div>
+        <div class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-4 text-center">
+          <div class="text-3xl font-black text-indigo-400">${stats.completedAll}/${stats.total || 0}</div>
+          <div class="text-xs text-slate-400 font-bold uppercase mt-1">Han hecho todo</div>
+        </div>
+        <div class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-4 text-center">
+          <div class="text-3xl font-black text-emerald-400">${stats.levelReached}</div>
+          <div class="text-xs text-slate-400 font-bold uppercase mt-1">Nivel alcanzado</div>
+        </div>
+        <div class="bg-slate-900 border-2 border-slate-800 rounded-2xl p-4 text-center">
+          <div class="text-3xl font-black text-amber-400">${stats.avg}%</div>
+          <div class="text-xs text-slate-400 font-bold uppercase mt-1">Media del grupo</div>
+        </div>
+      `;
+    }
+
+    function filterTeacherTable(term) {
+      teacherSearchTerm = term || "";
+      paintTeacherTable();
+    }
+
+    function paintTeacherTable() {
+      const tbody = document.getElementById("teacherTableBody");
+      let students = buildStudentSummaries(teacherAllRecords);
+
+      renderTeacherStats(students);
+
+      const term = teacherSearchTerm.trim().toLowerCase();
+      if (term) {
+        students = students.filter(s =>
+          (s.studentName || "").toLowerCase().includes(term) ||
+          (s.email || "").toLowerCase().includes(term)
+        );
+      }
+
+      if (students.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="${TEACHER_COLSPAN}" class="p-6 text-center text-slate-500 font-bold">
+          ${teacherAllRecords.length === 0 ? "No hay intentos registrados para tus alumnos/as." : "Ningún alumno coincide con la búsqueda."}
+        </td></tr>`;
+        return;
+      }
+
+      students.sort((a, b) => (a.studentName || "").localeCompare(b.studentName || "", "es"));
+
+      tbody.innerHTML = "";
+      students.forEach(s => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/50 transition";
+
+        const moduleCells = s.moduleScores.map(score => {
+          if (score === null) return `<td class="p-3 text-center text-slate-600">—</td>`;
+          const cls = score >= PASS_THRESHOLD ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400";
+          return `<td class="p-3 text-center"><span class="inline-block px-2 py-1 rounded-lg font-black text-xs ${cls}">${score}%</span></td>`;
+        }).join("");
+
+        const progressCell = s.allDone
+          ? `<span class="font-black text-white">${s.finalAverage}%</span>`
+          : `<span class="font-bold text-slate-400">${s.completedCount}/${MODULES.length}</span>`;
+
+        const levelCell = !s.allDone
+          ? `<span class="text-xs font-bold text-slate-500">En curso</span>`
+          : (s.levelReached
+              ? `<span class="text-xs font-black text-emerald-400">✅ Alcanzado</span>`
+              : `<span class="text-xs font-black text-rose-400">⚠️ No alcanzado</span>`);
+
+        tr.innerHTML = `
+          <td class="p-3 font-extrabold text-white">${s.studentName}</td>
+          <td class="p-3 text-slate-300 font-medium">${s.grade || "—"}</td>
+          ${moduleCells}
+          <td class="p-3 text-center">${progressCell}</td>
+          <td class="p-3 text-center">${levelCell}</td>
+          <td class="p-3 text-slate-400 text-xs">${s.lastDateTime || "—"}</td>
+        `;
+        tbody.appendChild(tr);
       });
     }
 
