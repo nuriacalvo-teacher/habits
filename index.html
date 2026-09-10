@@ -239,10 +239,14 @@
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="teacherStatsGrid"></div>
 
-      <div class="flex flex-col md:flex-row gap-3">
+      <div class="flex flex-col md:flex-row gap-3 md:items-center">
         <input id="teacherSearchInput" type="text" placeholder="🔍 Buscar alumno por nombre o email..." oninput="filterTeacherTable(this.value)"
           class="flex-1 bg-slate-900 border-2 border-slate-800 rounded-2xl px-5 py-3 text-base text-white focus:outline-none focus:border-indigo-500 transition">
+        <button id="teacherRefreshBtn" onclick="refreshTeacherDashboardNow()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-5 py-3 rounded-2xl transition flex items-center justify-center gap-2 whitespace-nowrap">
+          <i class="fa-solid fa-arrows-rotate"></i> Actualizar
+        </button>
       </div>
+      <p id="teacherLastRefreshed" class="text-xs text-slate-500 -mt-2">Cargando...</p>
 
       <div class="bg-slate-900 border-2 border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
         <div class="overflow-x-auto">
@@ -951,7 +955,12 @@
 
     let teacherAllRecords = [];
     let teacherSearchTerm = "";
-    const TEACHER_COLSPAN = 4 + MODULES.length;
+    let teacherResultsRef = null; // so we can detach the previous live listener before attaching a new one
+    const TEACHER_COLSPAN = 5 + MODULES.length; // Alumno, Curso, [módulos], Progreso, Nivel, Última actividad
+
+    function normalizeTeacherName(s) {
+      return (s || "").toString().trim().toLowerCase();
+    }
 
     function renderTeacherDashboard() {
       document.getElementById("teacherTitle").innerText = `Panel de ${currentTeacherLoggedIn}`;
@@ -959,13 +968,61 @@
       const tbody = document.getElementById("teacherTableBody");
       tbody.innerHTML = `<tr><td colspan="${TEACHER_COLSPAN}" class="p-6 text-center text-slate-400 font-bold">Cargando datos desde la nube...</td></tr>`;
 
-      // Escucha en vivo: cada vez que llega un resultado nuevo, se recalcula todo.
-      db.ref("results").orderByChild("teacher").equalTo(currentTeacherLoggedIn).on("value", (snapshot) => {
-        const records = [];
-        snapshot.forEach(childSnap => records.push(childSnap.val()));
-        teacherAllRecords = records;
+      // Detach any previous live listener first, so re-opening the panel never
+      // stacks up duplicate listeners or keeps watching with a stale filter.
+      if (teacherResultsRef) {
+        teacherResultsRef.off("value");
+      }
+
+      // NOTE: we deliberately do NOT filter with .orderByChild("teacher").equalTo(...)
+      // on the server. That requires an exact string match (and a defined index) and
+      // silently drops any record whose "teacher" field has different spacing/casing,
+      // which is why some students were going missing. Instead we pull the whole
+      // "results" node and match teachers ourselves, trimmed + case-insensitive.
+      teacherResultsRef = db.ref("results");
+      teacherResultsRef.on("value", (snapshot) => {
+        const all = [];
+        snapshot.forEach(childSnap => all.push(childSnap.val()));
+        const wanted = normalizeTeacherName(currentTeacherLoggedIn);
+        teacherAllRecords = all.filter(r => normalizeTeacherName(r && r.teacher) === wanted);
         paintTeacherTable();
+        updateTeacherLastRefreshed();
+      }, (err) => {
+        console.error("Error leyendo resultados de Firebase:", err);
+        tbody.innerHTML = `<tr><td colspan="${TEACHER_COLSPAN}" class="p-6 text-center text-rose-400 font-bold">
+          ⚠️ No se han podido cargar los datos (${err.message}). Comprueba tu conexión o las reglas de Firebase y pulsa "Actualizar".
+        </td></tr>`;
       });
+    }
+
+    function refreshTeacherDashboardNow() {
+      const tbody = document.getElementById("teacherTableBody");
+      const btn = document.getElementById("teacherRefreshBtn");
+      if (btn) { btn.disabled = true; btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Actualizando...`; }
+
+      db.ref("results").once("value").then((snapshot) => {
+        const all = [];
+        snapshot.forEach(childSnap => all.push(childSnap.val()));
+        const wanted = normalizeTeacherName(currentTeacherLoggedIn);
+        teacherAllRecords = all.filter(r => normalizeTeacherName(r && r.teacher) === wanted);
+        paintTeacherTable();
+        updateTeacherLastRefreshed();
+      }).catch((err) => {
+        console.error("Error al actualizar:", err);
+        alert("No se ha podido actualizar: " + err.message);
+      }).finally(() => {
+        if (btn) { btn.disabled = false; btn.innerHTML = `<i class="fa-solid fa-arrows-rotate"></i> Actualizar`; }
+      });
+    }
+
+    function updateTeacherLastRefreshed() {
+      const el = document.getElementById("teacherLastRefreshed");
+      if (!el) return;
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      el.innerText = `Última actualización: ${hh}:${mm}:${ss}`;
     }
 
     function renderTeacherTableHead() {
