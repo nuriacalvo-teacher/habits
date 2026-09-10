@@ -125,7 +125,7 @@
           <select id="regTeacher" required class="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl px-5 py-4 text-lg md:text-xl text-white focus:outline-none focus:border-indigo-500 transition">
             <option value="" disabled selected>Selecciona tu profesora...</option>
             <option value="Nuria Calvo">Nuria Calvo</option>
-            <option value="Ana Íñigo">Ana Íñigo</option>
+          
           </select>
         </div>
         <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xl md:text-2xl py-5 rounded-2xl transition shadow-xl shadow-indigo-600/40 flex items-center justify-center gap-3 mt-4">
@@ -939,13 +939,9 @@
     }
 
     function showTeacherLogin() {
-      const pwd = prompt("Introduce tu contraseña de profesora:\n(Nuria Calvo: nuria123 | Ana Íñigo: ana123)");
+      const pwd = prompt("Introduce tu contraseña de profesora:\n(Nuria Calvo: nuria123)");
       if (pwd === "nuria123") {
         currentTeacherLoggedIn = "Nuria Calvo";
-        renderTeacherDashboard();
-        showView("viewTeacher");
-      } else if (pwd === "ana123") {
-        currentTeacherLoggedIn = "Ana Íñigo";
         renderTeacherDashboard();
         showView("viewTeacher");
       } else if (pwd !== null) {
