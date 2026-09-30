@@ -38,5 +38,5 @@ Hasta que no lo hagas, el modo invitado funciona, pero la entrada con código de
 ## 🎬 Vídeo-lección narrada
 
 En [`video/`](video/) hay una lección animada y narrada en inglés (voces neuronales británicas) que explica *used to*, *be used to*, *get used to* y *usually*, con un quiz final.
-Una vez en la rama `main`, se abre en **https://nuriacalvo-teacher.github.io/habits/video/**.
+**▶ [Ver la lección](https://nuriacalvo-teacher.github.io/habits/video/)** · https://nuriacalvo-teacher.github.io/habits/video/
 Los audios están en `video/audio/` (MP3), así que suena igual en cualquier dispositivo; si alguno fallara, usa la voz del navegador.
