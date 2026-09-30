@@ -34,3 +34,9 @@ Esta versión guarda los resultados en su propio nodo, **`habits_v2`**. La versi
 En la consola de Firebase (proyecto *goya-english*): Realtime Database → **Reglas**. Duplica el bloque de `present_tenses_v2`, cambia el nombre a `habits_v2` y publica.
 
 Hasta que no lo hagas, el modo invitado funciona, pero la entrada con código de clase mostrará "Wrong class code".
+
+## 🎬 Vídeo-lección narrada
+
+En [`video/`](video/) hay una lección animada y narrada en inglés (voces neuronales británicas) que explica *used to*, *be used to*, *get used to* y *usually*, con un quiz final.
+Una vez en la rama `main`, se abre en **https://nuriacalvo-teacher.github.io/habits/video/**.
+Los audios están en `video/audio/` (MP3), así que suena igual en cualquier dispositivo; si alguno fallara, usa la voz del navegador.
